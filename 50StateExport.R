@@ -25,7 +25,8 @@
     "moz:firefoxOptions" = list(
       prefs = list(
         "dom.disable_open_during_load" = FALSE,     # allow popups
-        "privacy.popups.showBrowserMessage" = FALSE # optional: suppress popup warning bar
+        "privacy.popups.showBrowserMessage" = FALSE, # optional: suppress popup warning bar
+        "javascript.enabled" = TRUE
       )
     )
   )
@@ -59,14 +60,7 @@ tryclick <- function(using,value){
   })
 } 
 
-waitForDownload <- function(){
-  files <- list.files(path = "./DockerHome/mozilla_mozillaUser0",include.dirs = TRUE,full.names = TRUE)
-  size <- sum(file.size(files))
-  while(sum(file.size(files)) != size){
-    size <- sum(file.size(files))
-    Sys.sleep(1)
-  }
-}
+
 waitforLoad <- function(TimeOut = NULL){
   if(is.null(TimeOut)){
     files <- length(list.files(path = "./DockerHome/mozilla_mozillaUser0"))
@@ -74,7 +68,6 @@ waitforLoad <- function(TimeOut = NULL){
       Sys.sleep(0.5)
     }
   } else if(is.integer(TimeOut)){
-    
     while(length(list.files(path = "./DockerHome/mozilla_mozillaUser0")) < TimeOut){
       Sys.sleep(0.5)
     }
@@ -88,11 +81,7 @@ waitforLoad <- function(TimeOut = NULL){
     }
   }
 }
-wait <- function(){
-  waitforLoad()
-  waitForDownload()
-}
-  
+
 ################################################################################     
 #Convert Docker Tmp folder .part files
   ClearTmp <- function() {
@@ -105,7 +94,7 @@ wait <- function(){
   CompileAndPort <- function(State,Year){
     CompiledReport <- NULL
     files <- list.files(path = "./Processing")
-    if(State == "Florida"){
+    if(State == "Florida" | State == "Illinois"){
       for(i in 1:length(files)){
         file.rename(from = paste("./Processing","/report",i,".csv",sep=""), to = paste("./Processing","/report",i,".tsv",sep=""))
       }
@@ -182,8 +171,7 @@ Alaska <- function(Year){
       Sys.sleep(0.5)
     }
     remDr$findElement("css","#M_C_sCDTransactions_csfFilter_ExportDialog_hlAllCSV")$clickElement()
-    waitforLoad()
-    waitForDownload()
+    waitforLoad(5)
   }
   for(i in Year){
     for(j in 1:12){
@@ -208,14 +196,14 @@ Alaska <- function(Year){
 }
 Alabama <- function(Year){
   for(i in Year){
-    remDr$navigate("https://fcpa.alabamavotes.gov/page.request.do?page=page.acfPublicContributionReceiptReportsContributionsAndReceiptsBasedOnTypeOfContributorOrOtherSource")
-    remDr$findElement("css","#startDate")$sendKeysToElement(list(paste("01/01/2025",sep=""),key="enter"))
+    RangeURL <- paste("https://fcpa.alabamavotes.gov/page.request.do?page=com.acf.common.page.contributionsearchresults&pageNumber=1&pageSize=1&sortDirection=ASC&sortBy=contributor&criteria=%5B%7B%22field_key%22%3A%22beginningDate%22%2C%22comparison_type%22%3A%22after%22%2C%22comparison_value_1%22%3A%22",i,"-01-01%22%7D%2C%7B%22field_key%22%3A%22endDate%22%2C%22comparison_type%22%3A%22before%22%2C%22comparison_value_1%22%3A%22",i,"-12-31%22%7D%5D")
+    remDr$navigate(RangeURL)
+    RecCount <- strsplit(strsplit(as.character(read_html(remDr$getPageSource()[[1]]) %>% html_nodes("pre")),'totalRecords\":')[[1]][2],',')[[1]][1]
+    RangeURL <- paste0("https://fcpa.alabamavotes.gov/page.request.do?page=com.acf.common.page.contributionsearchresults&pageNumber=1&pageSize=",RecCount,"&sortDirection=ASC&sortBy=contributor&criteria=%5B%7B%22field_key%22%3A%22beginningDate%22%2C%22comparison_type%22%3A%22after%22%2C%22comparison_value_1%22%3A%22",i,"-01-01%22%7D%2C%7B%22field_key%22%3A%22endDate%22%2C%22comparison_type%22%3A%22before%22%2C%22comparison_value_1%22%3A%22",i,"-12-31%22%7D%5D")
+    remDr$navigate(RangeURL)
     remDr$findElement("css","#endDate")$sendKeysToElement(list(paste("12/31/2025",sep="")))
- remDr$findElement("css","#contributionsReceiptsTypeForm > form > div:nth-child(5) > div > div > button")$clickElement()
-    
-    Button <- remDr$findElement("css","#contributionsReceiptsTypeResults > div.d-flex.justify-content-between.align-items-center.mb-3 > div > div > button")
-    Export <- remDr$findElement("css","#dropdownMenuOptions > a:nth-child(1)")
-    remDr$executeScript("arguments[0].click();", list(Export))
+    strsplit(as.character(read_html(remDr$getPageSource()[[1]]) %>% html_nodes("pre")),"[")
+  
   }
 }
 Arizona <- function(Year){
@@ -234,7 +222,6 @@ Arizona <- function(Year){
           Sys.sleep(0.5)
           remDr$findElement("css","#ExportIndividualAmount")$clickElement()
           waitforLoad((100*page)+j)
-          waitForDownload()
         }else{
           Final <- FALSE
         }
@@ -247,6 +234,7 @@ Arizona <- function(Year){
 
 
 California <- function(Year){
+  Start <- Sys.time()
   for( i in Year){
     remDr$navigate("https://powersearch.sos.ca.gov/advanced.php")
     remDr$findElement("css","#all_cands")$clickElement()
@@ -258,11 +246,11 @@ California <- function(Year){
     remDr$findElement("css","#caps_search_btn2")$clickElement()
     remDr$findElement("css","#caps_field_btn")$clickElement()
     remDr$findElement("css","#caps_filter_box > div > a.download_csv")$clickElement()
-    waitforLoad()
-    waitForDownload()
+    Sys.sleep(30)
     ClearTmp()
-    CompileAndPort("California",2025)
+    CompileAndPort("California",i)
   }
+  print(Sys.time()-Start)
 }
   Colorado <- function(Year){
     clear <- function(){
@@ -308,12 +296,29 @@ California <- function(Year){
     }
   }
   Connecticut<- function(Year){
+    Start <- Sys.time()
     for(i in Year){
       link <- paste("https://seec.ct.gov/ecrisreporting/Data/eCrisDownloads/exportdatafiles/Receipts",i,"ElectionYearCandidateExploratoryCommittees.csv",sep="")
       remDr$navigate(link)
+      Sys.sleep(0.5)
       ClearTmp()
       CompileAndPort("Connecticut",i)
     }
+    print(Sys.time()-Start)
+  }
+  Delaware <- function(Year){
+    Start <- Sys.time()
+    for(i in Year){
+      remDr$navigate("https://cfrs.elections.delaware.gov/Public/ViewReceipts?theme=vista")
+      remDr$findElement("css","#dtStartDate")$sendKeysToElement(list(paste("01/01/",i,sep="")))
+      remDr$findElement("css","#dtEndDate")$sendKeysToElement(list(paste("12/31/",i,sep="")))
+      remDr$findElement("css","#btnSearch")$clickElement()
+      remDr$findElement("css","#export > img")$clickElement()
+      Sys.sleep(3)
+      ClearTmp()
+      CompileAndPort("Delaware",i)
+    }
+    print(Sys.time() - Start)
   }
   Georgia <- function(Year){
     for(i in Year){
@@ -354,6 +359,7 @@ California <- function(Year){
           SampleLimit <- round((UpperBound+LowerBound)/2,0)
         }
       }
+      print(LowerBound)
     return(LowerBound)
     }
     for(i in Year){
@@ -366,8 +372,13 @@ California <- function(Year){
   }
   Illinois <- function(Year){
     for(i in Year){
+      print(i)
       for(j in 1:12){
+        print(j)
         remDr$navigate("https://www.elections.il.gov/CampaignDisclosure/ContributionSearchByAllContributions.aspx")
+        while(element_exists(remDr,"css","#ContentPlaceHolder1_txtRcvDate") == FALSE){
+          Sys.sleep(0.5)
+        }
         if(j == 1){
           remDr$findElement("css"," #ContentPlaceHolder1_txtRcvDate")$sendKeysToElement(list(paste("1/1/",i, sep = "")))
           remDr$findElement("css"," #ContentPlaceHolder1_txtRcvDateThru")$sendKeysToElement(list(paste(j+1,"/1/",i, sep = ""),key = "enter"))
@@ -381,13 +392,16 @@ California <- function(Year){
         while(element_exists(remDr,"css","#ContentPlaceHolder1_lnkDownloadList") == FALSE){
           Sys.sleep(0.5)
         }
+        Sys.sleep(0.1)
         remDr$findElement("css","#ContentPlaceHolder1_lnkDownloadList")$clickElement()
-        while(element_exists(remDr,"css","#ContentPlaceHolder1_btnCSV") == FALSE){
+        while(element_exists(remDr,"css","#ContentPlaceHolder1_btnText") == FALSE){
           Sys.sleep(0.5)
         }
-        remDr$findElement("css","#ContentPlaceHolder1_btnCSV")$clickElement()
-        waitforLoad()
-        waitForDownload()
+        ss()
+        Sys.sleep(1)
+        remDr$findElement("css","#ContentPlaceHolder1_btnText")$clickElement()
+        waitforLoad(5)
+
       }
      ClearTmp()
      CompileAndPort("Illinois",i)
@@ -611,21 +625,6 @@ California <- function(Year){
       }
     }
   }
-  
-  NewMexico <- function(Year){
-    for(i in Year){
-      remDr$navigate("https://login.cfis.sos.state.nm.us/#/transaction/CON")
-      remDr$findElement("css","#bs-sidebar-navbar-collapse-1 > ul > li:nth-child(6) > div > a")$clickElement()
-      remDr$findElement("css","#id1 > div.md-container.md-ink-ripple")$clickElement()
-      remDr$findElement("css","#id4 > div.md-container.md-ink-ripple")$clickElement()
-      remDr$findElement("css","#id5 > div.md-container.md-ink-ripple")$clickElement()
-      remDr$findElement("css","#addFilterModalForm > md-dialog-actions > button")$clickElement()
-      remDr$findElement("xpath","/html/body/div[2]/div[2]/div/div[2]/div[1]/nav/div/div/ul/li[4]/md-input-container/md-datepicker/div/input")$sendKeysToElement(list(paste("1/1/",i, sep = "")))
-      remDr$findElement("xpath","/html/body/div[2]/div[2]/div/div[2]/div[1]/nav/div/div/ul/li[5]/md-input-container/md-datepicker/div[1]/input")$sendKeysToElement(list(paste("12/31/",i, sep = ""),key = "enter"))
-      
-      remDr$findElement("xpath","/html/body/div[2]/div[2]/div/div[1]/div[2]/a/i")$clickElement()
-      }
-  }
   NewJersy <- function(Year){
     for(i in Year){
       for(k in 1:2){
@@ -650,7 +649,22 @@ California <- function(Year){
       ClearTmp()
       CompileAndPort("New Jersey",i)
     }
+  }  
+  NewMexico <- function(Year){
+    for(i in Year){
+      remDr$navigate("https://login.cfis.sos.state.nm.us/#/transaction/CON")
+      remDr$findElement("css","#bs-sidebar-navbar-collapse-1 > ul > li:nth-child(6) > div > a")$clickElement()
+      remDr$findElement("css","#id1 > div.md-container.md-ink-ripple")$clickElement()
+      remDr$findElement("css","#id4 > div.md-container.md-ink-ripple")$clickElement()
+      remDr$findElement("css","#id5 > div.md-container.md-ink-ripple")$clickElement()
+      remDr$findElement("css","#addFilterModalForm > md-dialog-actions > button")$clickElement()
+      remDr$findElement("xpath","/html/body/div[2]/div[2]/div/div[2]/div[1]/nav/div/div/ul/li[4]/md-input-container/md-datepicker/div/input")$sendKeysToElement(list(paste("1/1/",i, sep = "")))
+      remDr$findElement("xpath","/html/body/div[2]/div[2]/div/div[2]/div[1]/nav/div/div/ul/li[5]/md-input-container/md-datepicker/div[1]/input")$sendKeysToElement(list(paste("12/31/",i, sep = ""),key = "enter"))
+      
+      remDr$findElement("xpath","/html/body/div[2]/div[2]/div/div[1]/div[2]/a/i")$clickElement()
+      }
   }
+
   NorthCarolina <- function(Year){
     for(i in Year){
         remDr$navigate("https://cf.ncsbe.gov/CFTxnLkup/")
@@ -892,7 +906,7 @@ California <- function(Year){
       remDr$findElement("css", "#_continue")$clickElement()
     }
     SavePage <- function(){
-      tryCatch({ remDr$findElement("css", "#content > form > div.exportlinks > a:nth-child(1)")$clickElement(); TRUE}, error = function(e){ remDr$refresh(); Sys.sleep(2);print("Try"); SavePage(); return(FALSE)})
+      tryCatch({ remDr$findElement("css", "#content > form > div.exportlinks > a:nth-child(1)")$clickElement(); TRUE}, error = function(e){ return(FALSE)})
     }
     NextPage <- function(){
       if(MorePages() == FALSE){
@@ -908,12 +922,16 @@ California <- function(Year){
     } # Checks if it is the final Page or if there is More
     for(i in 1:length(Year)){
       SearchYear(Year[i])
-      Sys.sleep(2)
+
       More <- TRUE
       count <- 1
       while(More == TRUE){
         print(count)
-        SavePage()
+        SavedPage <- FALSE
+        while(SavedPage == FALSE){
+          SavedPage <- SavePage()
+          Sys.sleep(1)
+        }
         remDr$screenshot(display = TRUE )
         More <- MorePages()
         NextPage()
@@ -1006,14 +1024,28 @@ California <- function(Year){
       write.csv(export,paste("./Utah/Utah",i,".csv",sep=""))
     }
   }
-  Virgina <- function(Year){
+  Virginia <- function(Year){
     for(i in Year){
       for(j in 1:12){
         if(j <10){
-          remDr$navigate(paste("https://apps.elections.virginia.gov/SBE_CSV/CF/",i,"_0",j,"/ScheduleC.csv",sep=""))
+          remDr$navigate(paste("https://apps.elections.virginia.gov/SBE_CSV/CF/",i,"_0",j,"/Report.csv",sep=""))
+        }else{
+          remDr$navigate(paste("https://apps.elections.virginia.gov/SBE_CSV/CF/",i,"_",j,"/Report.csv",sep=""))
         }
-       
+        Sys.sleep(0.5)
       }
+      ClearTmp()
+      CompileAndPort("Virginia",paste0("PACIDs",i))
+      for(j in 1:12){
+        if(j <10){
+          remDr$navigate(paste("https://apps.elections.virginia.gov/SBE_CSV/CF/",i,"_0",j,"/ScheduleA.csv",sep=""))
+        }else{
+          remDr$navigate(paste("https://apps.elections.virginia.gov/SBE_CSV/CF/",i,"_",j,"/ScheduleA.csv",sep=""))
+        }
+        Sys.sleep(0.5)
+      }
+      ClearTmp()
+      CompileAndPort("Virginia",i)
     }
   }
   Wyoming <- function(Year){
@@ -1033,7 +1065,7 @@ California <- function(Year){
         CompileAndPort("Wyoming",i)
       }
   }
-remDr$close()
+#remDr$close()
   
 
 
