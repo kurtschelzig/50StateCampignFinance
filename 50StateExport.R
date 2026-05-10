@@ -61,15 +61,18 @@ tryclick <- function(using,value){
 } 
 
 
-waitforLoad <- function(TimeOut = NULL){
+waitforLoad <- function(TimeOut = 10){
   if(is.null(TimeOut)){
     files <- length(list.files(path = "./DockerHome/mozilla_mozillaUser0"))
     while(files == length(list.files(path = "./DockerHome/mozilla_mozillaUser0"))){
       Sys.sleep(0.5)
     }
   } else if(is.integer(TimeOut)){
-    while(length(list.files(path = "./DockerHome/mozilla_mozillaUser0")) < TimeOut){
+    counter <-1
+    files <- length(list.files(path = "./DockerHome/mozilla_mozillaUser0"))
+    while((files == length(list.files(path = "./DockerHome/mozilla_mozillaUser0")) &&  TimeOut < 4)){
       Sys.sleep(0.5)
+      counter <- counter +1
     }
   }
   else{
@@ -1059,8 +1062,7 @@ California <- function(Year){
           Sys.sleep(1)
         }
         remDr$findElement("css","#ctl00_BodyContent_btnExport")$clickElement()
-        waitforLoad(which(Year == i))
-        waitForDownload()
+        waitforLoad()
         ClearTmp()
         CompileAndPort("Wyoming",i)
       }
